@@ -1,4 +1,15 @@
-# Seeker 
+<div align="center">
+SEEKER AI
+</div>
+
+<div align="center" style="margin-top: 10px">
+  <a href="https://omnipad-web.vercel.app/">
+    <img
+      src="https://res.cloudinary.com/diekemzs9/image/upload/v1743977262/Launch_LinkedIn_Single_Image_Ad_rchi1u.png"
+      alt="seeker"
+      height="100"
+    />
+  </a>
 
 A local research assistant that performs iterative, deep-dive investigations using search engines, web scraping, and LLMs. Combines breadth-first exploration with depth-first analysis for comprehensive topic coverage.
 
