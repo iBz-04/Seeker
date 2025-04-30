@@ -1,5 +1,5 @@
 <div align="center">
-SEEKER AI
+<h1>Seeker Ai</h1>
 </div>
 
 <div align="center" style="margin-top: 10px">
