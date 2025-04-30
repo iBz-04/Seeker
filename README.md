@@ -3,9 +3,9 @@ SEEKER AI
 </div>
 
 <div align="center" style="margin-top: 10px">
-  <a href="https://omnipad-web.vercel.app/">
+  <a href="">
     <img
-      src="https://res.cloudinary.com/diekemzs9/image/upload/v1743977262/Launch_LinkedIn_Single_Image_Ad_rchi1u.png"
+      src="https://res.cloudinary.com/diekemzs9/image/upload/v1746009112/extension_icon_1024px_jedbgf.png"
       alt="seeker"
       height="100"
     />
