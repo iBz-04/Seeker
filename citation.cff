@@ -1,0 +1,10 @@
+cff-version: 1.0.0
+message: "Do you use this project?, if yes,  cite it as shown below."
+authors:
+  - family-names: Rayamah
+    given-names: Ibrahim
+title: Seeker
+version: 0.1.0
+date-released: 2025-05-08
+repository-code: https://github.com/iBz-04/Seeker
+url: https://github.com/iBz-04/Seeker
