@@ -17,9 +17,9 @@ const openai = process.env.OPENAI_KEY
     })
   : undefined;
 
-const fireworks = process.env.FIREWORKS_KEY
+const fireworks = process.env.FIREWORKS_API_KEY
   ? createFireworks({
-      apiKey: process.env.FIREWORKS_KEY,
+      apiKey: process.env.FIREWORKS_API_KEY,
     })
   : undefined;
 
@@ -36,11 +36,16 @@ const o3MiniModel = openai?.('o3-mini', {
   structuredOutputs: true,
 });
 
-const deepSeekR1Model = fireworks
+// Only instantiate a Fireworks model if an explicit model id is provided via
+// `FIREWORKS_MODEL`. This prevents attempting to use a model that is not
+// deployed or accessible with the current API key (which would cause runtime
+// errors). If `FIREWORKS_MODEL` is not set, the code will fall back to the
+// OpenAI model (`o3-mini`).
+const FIREWORKS_MODEL = process.env.FIREWORKS_MODEL;
+
+const deepSeekR1Model = fireworks && FIREWORKS_MODEL
   ? wrapLanguageModel({
-      model: fireworks(
-        'accounts/fireworks/models/deepseek-r1',
-      ) as LanguageModelV1,
+      model: fireworks(FIREWORKS_MODEL) as LanguageModelV1,
       middleware: extractReasoningMiddleware({ tagName: 'think' }),
     })
   : undefined;

@@ -37,7 +37,7 @@ app.post('/api/research', async (req: Request, res: Response) => {
       `\n\nVisited URLs (${visitedUrls.length}):\n\n${visitedUrls.join('\n')}`,
     );
 
-    const answer = await writeFinalAnswer({
+    const { exactAnswer, mdPath, docxPath } = await writeFinalAnswer({
       prompt: query,
       learnings,
     });
@@ -45,9 +45,11 @@ app.post('/api/research', async (req: Request, res: Response) => {
     // Return the results
     return res.json({
       success: true,
-      answer,
+      answer: exactAnswer,
       learnings,
       visitedUrls,
+      mdPath,
+      docxPath,
     });
   } catch (error: unknown) {
     console.error('Error in research API:', error);

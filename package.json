@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "main": "index.ts",
   "scripts": {
+    "test-model": "tsx --env-file=.env src/test-model.ts",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "tsx": "tsx --env-file=.env.local",
     "start": "tsx --env-file=.env.local src/run.ts",
@@ -35,7 +36,9 @@
     "lodash-es": "^4.17.21",
     "p-limit": "^6.2.0",
     "uuid": "^9.0.1",
-    "zod": "^3.24.1"
+    "zod": "^3.24.1",
+    "marked": "^5.1.2",
+    "html-to-docx": "^1.8.0"
   },
   "engines": {
     "node": "22.x"

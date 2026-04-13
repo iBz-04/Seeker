@@ -94,24 +94,24 @@ ${followUpQuestions.map((q: string, i: number) => `Q: ${q}\nA: ${answers[i]}`).j
   log('Writing final report...');
 
   if (isReport) {
-    const report = await writeFinalReport({
+    const { reportMarkdown, mdPath, docxPath } = await writeFinalReport({
       prompt: combinedQuery,
       learnings,
       visitedUrls,
     });
 
-    await fs.writeFile('report.md', report, 'utf-8');
-    console.log(`\n\nFinal Report:\n\n${report}`);
-    console.log('\nReport has been saved to report.md');
+    console.log(`\n\nFinal Report:\n\n${reportMarkdown}`);
+    if (mdPath) console.log(`\nReport has been saved to ${mdPath}`);
+    if (docxPath) console.log(`Report has been saved to ${docxPath}`);
   } else {
-    const answer = await writeFinalAnswer({
+    const { exactAnswer, mdPath, docxPath } = await writeFinalAnswer({
       prompt: combinedQuery,
       learnings,
     });
 
-    await fs.writeFile('answer.md', answer, 'utf-8');
-    console.log(`\n\nFinal Answer:\n\n${answer}`);
-    console.log('\nAnswer has been saved to answer.md');
+    console.log(`\n\nFinal Answer:\n\n${exactAnswer}`);
+    if (mdPath) console.log(`\nAnswer has been saved to ${mdPath}`);
+    if (docxPath) console.log(`Answer has been saved to ${docxPath}`);
   }
 
   rl.close();

@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 import { getModel, trimPrompt } from './ai/providers';
 import { systemPrompt } from './prompt';
+import { saveMdAndConvert } from './utils/md-to-docx';
 
 function log(...args: any[]) {
   console.log(...args);
@@ -127,7 +128,7 @@ export async function writeFinalReport({
   prompt: string;
   learnings: string[];
   visitedUrls: string[];
-}) {
+}): Promise<{ reportMarkdown: string; mdPath?: string; docxPath?: string }> {
   const learningsString = learnings
     .map(learning => `<learning>\n${learning}\n</learning>`)
     .join('\n');
@@ -147,7 +148,20 @@ export async function writeFinalReport({
 
   // Append the visited URLs section to the report
   const urlsSection = `\n\n## Sources\n\n${visitedUrls.map(url => `- ${url}`).join('\n')}`;
-  return res.object.reportMarkdown + urlsSection;
+  const finalReport = res.object.reportMarkdown + urlsSection;
+
+  const ts = Date.now();
+  const mdPath = `report-${ts}.md`;
+  const docxPath = `report-${ts}.docx`;
+
+  try {
+    await saveMdAndConvert(finalReport, mdPath, docxPath);
+    log(`Saved final report to ${mdPath} and ${docxPath}`);
+  } catch (err) {
+    console.error('Failed to save/convert final report:', err);
+  }
+
+  return { reportMarkdown: finalReport, mdPath, docxPath };
 }
 
 export async function writeFinalAnswer({
@@ -156,7 +170,7 @@ export async function writeFinalAnswer({
 }: {
   prompt: string;
   learnings: string[];
-}) {
+}): Promise<{ exactAnswer: string; mdPath?: string; docxPath?: string }> {
   const learningsString = learnings
     .map(learning => `<learning>\n${learning}\n</learning>`)
     .join('\n');
@@ -176,7 +190,19 @@ export async function writeFinalAnswer({
     }),
   });
 
-  return res.object.exactAnswer;
+  const finalAnswer = res.object.exactAnswer;
+  const ts = Date.now();
+  const mdPath = `answer-${ts}.md`;
+  const docxPath = `answer-${ts}.docx`;
+
+  try {
+    await saveMdAndConvert(finalAnswer, mdPath, docxPath);
+    log(`Saved final answer to ${mdPath} and ${docxPath}`);
+  } catch (err) {
+    console.error('Failed to save/convert final answer:', err);
+  }
+
+  return { exactAnswer: finalAnswer, mdPath, docxPath };
 }
 
 export async function deepResearch({

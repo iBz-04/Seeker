@@ -1,0 +1,25 @@
+{
+  "models": [
+    {
+      "id": "gpt-4.1",
+      "provider": "OpenAI",
+      "providerId": "openai",
+      "name": "GPT-4.1",
+      "multiModal": true
+    },
+    {
+      "id": "gpt-4.1-mini",
+      "provider": "OpenAI",
+      "providerId": "openai",
+      "name": "GPT-4.1 mini",
+      "multiModal": true
+    },
+    {
+      "id": "gpt-4.1-nano",
+      "provider": "OpenAI",
+      "providerId": "openai",
+      "name": "GPT-4.1 nano",
+      "multiModal": true
+    }
+  ]
+}
