@@ -1,10 +1,13 @@
 import cors from 'cors';
 import express, { Request, Response } from 'express';
 
-import { deepResearch, writeFinalAnswer, writeFinalReport } from './deep-research';
+import {
+  deepResearch,
+  writeFinalAnswer,
+  writeFinalReport,
+} from './deep-research';
 
-const app = express();
-const port = process.env.PORT || 3051;
+export const app = express();
 
 // Middleware
 app.use(cors());
@@ -29,7 +32,9 @@ app.post('/api/research', async (req: Request, res: Response) => {
     }
 
     if (mode !== 'answer' && mode !== 'report') {
-      return res.status(400).json({ error: 'Mode must be "answer" or "report"' });
+      return res
+        .status(400)
+        .json({ error: 'Mode must be "answer" or "report"' });
     }
 
     log('\nStarting research...\n');
@@ -86,9 +91,16 @@ app.post('/api/research', async (req: Request, res: Response) => {
   }
 });
 
-// Start the server
-app.listen(port, () => {
-  console.log(`Deep Research API running on port ${port}`);
-});
+export function startServer() {
+  const port = process.env.PORT || 3051;
+
+  return app.listen(port, () => {
+    console.log(`Deep Research API running on port ${port}`);
+  });
+}
+
+if (require.main === module) {
+  startServer();
+}
 
 export default app;

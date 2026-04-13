@@ -1,13 +1,15 @@
 {
   "name": "Seeker",
   "version": "0.0.1",
-  "main": "index.ts",
+  "main": "index.js",
   "scripts": {
     "test-model": "tsx --env-file=.env src/test-model.ts",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "tsx": "tsx --env-file=.env.local",
-    "start": "tsx --env-file=.env.local src/run.ts",
-    "api": "tsx --env-file=.env.local src/api.ts",
+    "start": "node index.js",
+    "api": "node index.js",
+    "api:dev": "tsx --env-file=.env.local src/api.ts",
+    "cli": "tsx --env-file=.env.local src/run.ts",
     "docker": "tsx src/run.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -22,7 +24,6 @@
     "@types/node": "^22.13.0",
     "@types/uuid": "^9.0.8",
     "prettier": "^3.4.2",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.3"
   },
   "dependencies": {
@@ -35,6 +36,7 @@
     "js-tiktoken": "^1.0.17",
     "lodash-es": "^4.17.21",
     "p-limit": "^6.2.0",
+    "tsx": "^4.19.2",
     "uuid": "^9.0.1",
     "zod": "^3.24.1",
     "marked": "^5.1.2",

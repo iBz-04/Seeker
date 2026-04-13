@@ -4,8 +4,8 @@ services:
     runtime: node
     plan: starter
     region: frankfurt
-    buildCommand: npm install
-    startCommand: npm run api
+    buildCommand: pnpm install --frozen-lockfile
+    startCommand: node index.js
     healthCheckPath: /healthz
     envVars:
       - key: NODE_VERSION

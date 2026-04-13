@@ -14,16 +14,18 @@
 A local research assistant that performs iterative, deep-dive investigations using search engines, web scraping, and LLMs. Combines breadth-first exploration with depth-first analysis for comprehensive topic coverage.
 
 ### Clariciation of Search Intent
+
 ![Research Process Diagram](https://res.cloudinary.com/diekemzs9/image/upload/v1742669225/Screenshot_2025-03-22_181603_cl5rgp.png)
 
 ### Research Process
+
 ![Research Process Diagram](https://res.cloudinary.com/diekemzs9/image/upload/v1742669225/Screenshot_2025-03-22_181656_bfcrwe.png)
 
 ### End of Task
+
 ![Research Process Diagram](https://res.cloudinary.com/diekemzs9/image/upload/v1742669225/Screenshot_2025-03-22_181734_zdoaku.png)
 
-
-## Features 
+## Features
 
 - **Iterative Research** - Self-refining research direction based on initial findings
 - **Follow-up Question System** - Clarifies research goals through interactive dialogue
@@ -35,6 +37,7 @@ A local research assistant that performs iterative, deep-dive investigations usi
 ## Quick Start 🚀
 
 ### Prerequisites
+
 - Node.js v18+
 - API keys for:
   - [Firecrawl](https://firecrawl.dev/) (web scraping)
@@ -54,8 +57,9 @@ cp .env.example .env.local
 ```
 
 ### Basic Usage
+
 ```bash
-npm start
+npm run cli
 
 ? What would you like to research? Effects of climate change on coffee production
 ? Research breadth (3-10): 5
@@ -65,6 +69,7 @@ npm start
 ## Advanced Configuration ⚙️
 
 ### Environment Variables
+
 ```ini
 # Required
 FIRECRAWL_API_KEY="your_firecrawl_key"
@@ -77,6 +82,7 @@ MAX_TOKENS=4096         # LLM context window
 ```
 
 ### Docker Deployment
+
 ```bash
 docker compose up -d --build
 docker exec -it deep-research npm run docker
@@ -97,8 +103,8 @@ For the current architecture, deploy the backend as a Render web service and kee
 If you configure the service manually instead of using the blueprint, use:
 
 - Runtime: `Node`
-- Build Command: `npm install`
-- Start Command: `npm run api`
+- Build Command: `pnpm install --frozen-lockfile`
+- Start Command: `node index.js`
 - Health Check Path: `/healthz`
 
 ### 3. Required environment variables
@@ -114,6 +120,8 @@ Optional:
 - `FIREWORKS_API_KEY`
 - `FIREWORKS_MODEL`
 - `OPENAI_ENDPOINT`
+
+`OPENAI_API_KEY`, `FIRECRAWL_API_KEY`, and `OPENAI_BASE_URL` are also accepted if you already use those names elsewhere.
 
 ### 4. Point the frontend to Render
 
@@ -161,17 +169,19 @@ After deployment:
 ## Customization Options 🛠️
 
 ### Adjust Research Parameters
+
 ```typescript
 // deep-research.ts
 const config = {
-  maxConcurrency: 5,      // Parallel requests
+  maxConcurrency: 5, // Parallel requests
   minRelevanceScore: 0.7, // Content filtering threshold
-  maxPagesPerQuery: 10,   // Resource limits
-  timeout: 30000          // Per-request timeout
+  maxPagesPerQuery: 10, // Resource limits
+  timeout: 30000, // Per-request timeout
 };
 ```
 
 ### Supported LLM Providers
+
 ```ini
 # Local AI
 OPENAI_BASE_URL="http://localhost:1234/v1"
@@ -188,16 +198,19 @@ OPENAI_MODEL="anthropic/claude-3-haiku"
 # Research Report: Climate Change Impact on Coffee Production
 
 ## Key Findings
+
 - **Yield Reductions**: 50% projected decrease in suitable growing areas by 2050
 - **Quality Impacts**: Increased temperatures correlate with flavor profile degradation
 - **Economic Costs**: $2.5B annual losses anticipated in major producing regions
 
 ## Recommended Actions
+
 1. Develop heat-resistant coffee cultivars
 2. Implement agroforestry practices
 3. Diversify geographic production areas
 
 ## Sources
+
 1. [Journal of Agricultural Science] (https://example.com/source1)
 2. [FAO Climate Report] (https://example.com/source2)
 ```
@@ -205,9 +218,7 @@ OPENAI_MODEL="anthropic/claude-3-haiku"
 ## Troubleshooting ⚠️
 
 **Common Issues:**
+
 - Rate Limiting: Reduce `RESEARCH_CONCURRENCY` in free tier
 - Timeouts: Increase `TIMEOUT` duration for complex queries
 - Relevance Filtering: Adjust `MIN_RELEVANCE_SCORE` for sensitive content
-
-
-

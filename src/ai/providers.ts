@@ -9,11 +9,17 @@ import { getEncoding } from 'js-tiktoken';
 
 import { RecursiveCharacterTextSplitter } from './text-splitter';
 
+const openAiApiKey = process.env.OPENAI_KEY ?? process.env.OPENAI_API_KEY;
+const openAiBaseUrl =
+  process.env.OPENAI_ENDPOINT ??
+  process.env.OPENAI_BASE_URL ??
+  'https://api.openai.com/v1';
+
 // Providers
-const openai = process.env.OPENAI_KEY
+const openai = openAiApiKey
   ? createOpenAI({
-      apiKey: process.env.OPENAI_KEY,
-      baseURL: process.env.OPENAI_ENDPOINT || 'https://api.openai.com/v1',
+      apiKey: openAiApiKey,
+      baseURL: openAiBaseUrl,
     })
   : undefined;
 
@@ -43,12 +49,13 @@ const o3MiniModel = openai?.('o3-mini', {
 // OpenAI model (`o3-mini`).
 const FIREWORKS_MODEL = process.env.FIREWORKS_MODEL;
 
-const deepSeekR1Model = fireworks && FIREWORKS_MODEL
-  ? wrapLanguageModel({
-      model: fireworks(FIREWORKS_MODEL) as LanguageModelV1,
-      middleware: extractReasoningMiddleware({ tagName: 'think' }),
-    })
-  : undefined;
+const deepSeekR1Model =
+  fireworks && FIREWORKS_MODEL
+    ? wrapLanguageModel({
+        model: fireworks(FIREWORKS_MODEL) as LanguageModelV1,
+        middleware: extractReasoningMiddleware({ tagName: 'think' }),
+      })
+    : undefined;
 
 export function getModel(): LanguageModelV1 {
   if (customModel) {

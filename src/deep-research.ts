@@ -31,9 +31,11 @@ type ResearchResult = {
 const ConcurrencyLimit = 2;
 
 // Initialize Firecrawl with optional API key and optional base url
+const firecrawlApiKey =
+  process.env.FIRECRAWL_KEY ?? process.env.FIRECRAWL_API_KEY ?? '';
 
 const firecrawl = new FirecrawlApp({
-  apiKey: process.env.FIRECRAWL_KEY ?? '',
+  apiKey: firecrawlApiKey,
   apiUrl: process.env.FIRECRAWL_BASE_URL,
 });
 
