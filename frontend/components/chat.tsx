@@ -22,7 +22,7 @@ export function Chat({
     if (chatContainer) {
       chatContainer.scrollTop = chatContainer.scrollHeight
     }
-  }, [JSON.stringify(messages)])
+  }, [messages])
 
   return (
     <div

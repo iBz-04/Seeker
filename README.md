@@ -82,6 +82,55 @@ docker compose up -d --build
 docker exec -it deep-research npm run docker
 ```
 
+## Deploy Backend To Render
+
+For the current architecture, deploy the backend as a Render web service and keep the frontend on Vercel.
+
+### 1. Create the Render service
+
+- Push this repo to GitHub
+- In Render, create a new Blueprint or Web Service from the repository
+- If you use the included [`render.yaml`](./render.yaml), Render will create a `seeker-api` web service for you
+
+### 2. Backend settings
+
+If you configure the service manually instead of using the blueprint, use:
+
+- Runtime: `Node`
+- Build Command: `npm install`
+- Start Command: `npm run api`
+- Health Check Path: `/healthz`
+
+### 3. Required environment variables
+
+Set these in Render:
+
+- `OPENAI_KEY`
+- `FIRECRAWL_KEY`
+
+Optional:
+
+- `CONTEXT_SIZE`
+- `FIREWORKS_API_KEY`
+- `FIREWORKS_MODEL`
+- `OPENAI_ENDPOINT`
+
+### 4. Point the frontend to Render
+
+In your frontend deployment, set:
+
+```ini
+SEEKER_BACKEND_URL="https://your-render-service.onrender.com/api/research"
+```
+
+### 5. Verify
+
+After deployment:
+
+- Open `https://your-render-service.onrender.com/healthz`
+- It should return `{ "ok": true }`
+- Then test the frontend against the deployed backend
+
 ## Research Process Flow 🔄
 
 1. **Initial Query Analysis**
@@ -159,7 +208,6 @@ OPENAI_MODEL="anthropic/claude-3-haiku"
 - Rate Limiting: Reduce `RESEARCH_CONCURRENCY` in free tier
 - Timeouts: Increase `TIMEOUT` duration for complex queries
 - Relevance Filtering: Adjust `MIN_RELEVANCE_SCORE` for sensitive content
-
 
 
 

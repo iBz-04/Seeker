@@ -12,7 +12,7 @@ import { AuthViewType, useAuth } from '@/lib/auth'
 import { Message } from '@/lib/messages'
 import { supabase } from '@/lib/supabase'
 import { usePostHog } from 'posthog-js/react'
-import { SetStateAction, useRef, useState } from 'react'
+import { SetStateAction, useEffect, useRef, useState } from 'react'
 import { useLocalStorage } from 'usehooks-ts'
 
 type ResearchResponse = {
@@ -26,6 +26,12 @@ type ResearchResponse = {
   error?: string
 }
 
+const defaultResearchSettings: ResearchSettings = {
+  breadth: 3,
+  depth: 2,
+  mode: 'answer',
+}
+
 function extractMessageText(message: Message) {
   return message.content
     .filter((content) => content.type === 'text')
@@ -37,13 +43,17 @@ function extractMessageText(message: Message) {
 function formatResearchResponse(result: ResearchResponse) {
   const sections = [result.content?.trim() ?? '']
 
-  if (result.learnings && result.learnings.length > 0) {
+  if (result.mode !== 'report' && result.learnings && result.learnings.length > 0) {
     sections.push(
       `Learnings:\n${result.learnings.map((learning) => `- ${learning}`).join('\n')}`,
     )
   }
 
-  if (result.visitedUrls && result.visitedUrls.length > 0) {
+  if (
+    result.mode !== 'report' &&
+    result.visitedUrls &&
+    result.visitedUrls.length > 0
+  ) {
     sections.push(
       `Sources:\n${result.visitedUrls.map((url) => `- ${url}`).join('\n')}`,
     )
@@ -60,14 +70,11 @@ function formatResearchResponse(result: ResearchResponse) {
 export default function Home() {
   const [chatInput, setChatInput] = useLocalStorage('chat', '')
   const [researchSettings, setResearchSettings] =
-    useLocalStorage<ResearchSettings>('researchSettings', {
-      breadth: 3,
-      depth: 2,
-      mode: 'answer',
-    })
+    useLocalStorage<ResearchSettings>('researchSettings', defaultResearchSettings)
   const [files, setFiles] = useState<File[]>([])
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [isHydrated, setIsHydrated] = useState(false)
   const [isAuthDialogOpen, setAuthDialog] = useState(false)
   const [authView, setAuthView] = useState<AuthViewType>('sign_in')
   const [isRateLimited, setIsRateLimited] = useState(false)
@@ -79,6 +86,14 @@ export default function Home() {
   } | null>(null)
   const { session } = useAuth(setAuthDialog, setAuthView)
   const posthog = usePostHog()
+  const activeChatInput = isHydrated ? chatInput : ''
+  const activeResearchSettings = isHydrated
+    ? researchSettings
+    : defaultResearchSettings
+
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
 
   async function runResearch(query: string, settings: ResearchSettings) {
     abortControllerRef.current?.abort()
@@ -146,7 +161,7 @@ export default function Home() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
 
-    const query = chatInput.trim()
+    const query = activeChatInput.trim()
     if (!query) {
       return
     }
@@ -163,19 +178,19 @@ export default function Home() {
     setMessages((currentMessages) => [...currentMessages, userMessage])
     lastRequestRef.current = {
       query,
-      settings: researchSettings,
+      settings: activeResearchSettings,
     }
 
     setChatInput('')
     setFiles([])
 
     posthog.capture('research_submit', {
-      mode: researchSettings.mode,
-      breadth: researchSettings.breadth,
-      depth: researchSettings.depth,
+      mode: activeResearchSettings.mode,
+      breadth: activeResearchSettings.breadth,
+      depth: activeResearchSettings.depth,
     })
 
-    await runResearch(query, researchSettings)
+    await runResearch(query, activeResearchSettings)
   }
 
   async function retry() {
@@ -276,7 +291,7 @@ export default function Home() {
             signOut={logout}
             onSocialClick={handleSocialClick}
             onClear={handleClearChat}
-            canClear={messages.length > 0 || chatInput.length > 0}
+            canClear={messages.length > 0 || activeChatInput.length > 0}
             canUndo={messages.length > 0 && !isLoading}
             onUndo={handleUndo}
           />
@@ -288,7 +303,7 @@ export default function Home() {
             isLoading={isLoading}
             isRateLimited={isRateLimited}
             stop={stop}
-            input={chatInput}
+            input={activeChatInput}
             handleInputChange={handleSaveInputChange}
             handleSubmit={handleSubmit}
             isMultiModal={false}
@@ -297,15 +312,15 @@ export default function Home() {
           >
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className="rounded-full border px-2 py-1">
-                {researchSettings.mode === 'report' ? 'Full report' : 'Short answer'}
+                {activeResearchSettings.mode === 'report' ? 'Full report' : 'Short answer'}
               </span>
               <span>
-                Breadth {researchSettings.breadth} · Depth {researchSettings.depth}
+                Breadth {activeResearchSettings.breadth} · Depth {activeResearchSettings.depth}
               </span>
             </div>
             <ChatSettings
-              settings={researchSettings}
-              onSettingsChange={setResearchSettings}
+              settings={activeResearchSettings}
+              onSettingsChange={(settings) => setResearchSettings(settings)}
             />
           </ChatInput>
         </div>

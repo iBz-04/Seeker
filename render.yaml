@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: seeker-api
+    runtime: node
+    plan: starter
+    region: frankfurt
+    buildCommand: npm install
+    startCommand: npm run api
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: CONTEXT_SIZE
+        value: 8000
+      - key: OPENAI_KEY
+        sync: false
+      - key: FIRECRAWL_KEY
+        sync: false
+      - key: FIREWORKS_API_KEY
+        sync: false
+      - key: FIREWORKS_MODEL
+        sync: false
+      - key: OPENAI_ENDPOINT
+        sync: false

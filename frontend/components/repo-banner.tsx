@@ -3,7 +3,7 @@ import { Separator } from './ui/separator'
 import { cn } from '@/lib/utils'
 import { StarFilledIcon } from '@radix-ui/react-icons'
 
-const REPO_URL = 'https://github.com/iBz-04'
+const REPO_URL = 'https://github.com/iBz-04/Seeker'
 
 export function RepoBanner({ className }: { className?: string }) {
   return (
@@ -27,7 +27,7 @@ export function RepoBanner({ className }: { className?: string }) {
         aria-hidden="true"
       />
       <p className="text-sm font-medium text-foreground tracking-wide">
-        Follow on GitHub
+        Star on GitHub
       </p>
       <div
         className="flex items-center gap-1 text-foreground/80"

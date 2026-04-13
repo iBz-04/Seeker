@@ -15,6 +15,10 @@ function log(...args: any[]) {
   console.log(...args);
 }
 
+app.get('/healthz', (_req: Request, res: Response) => {
+  return res.status(200).json({ ok: true });
+});
+
 // API endpoint to run research
 app.post('/api/research', async (req: Request, res: Response) => {
   try {
