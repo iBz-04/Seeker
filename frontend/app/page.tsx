@@ -3,223 +3,194 @@
 import { AuthDialog } from '@/components/auth-dialog'
 import { Chat } from '@/components/chat'
 import { ChatInput } from '@/components/chat-input'
-import { ChatPicker } from '@/components/chat-picker'
-import { ChatSettings } from '@/components/chat-settings'
+import {
+  ChatSettings,
+  ResearchSettings,
+} from '@/components/chat-settings'
 import { NavBar } from '@/components/navbar'
-import { Preview } from '@/components/preview'
 import { AuthViewType, useAuth } from '@/lib/auth'
-import { Message, toAISDKMessages, toMessageImage } from '@/lib/messages'
-import { LLMModelConfig } from '@/lib/models'
-import modelsList from '@/lib/models.json'
-import { FragmentSchema, fragmentSchema as schema } from '@/lib/schema'
+import { Message } from '@/lib/messages'
 import { supabase } from '@/lib/supabase'
-import templates, { TemplateId } from '@/lib/templates'
-import { ExecutionResult } from '@/lib/types'
-import { DeepPartial } from 'ai'
-import { experimental_useObject as useObject } from 'ai/react'
 import { usePostHog } from 'posthog-js/react'
-import { SetStateAction, useEffect, useState } from 'react'
+import { SetStateAction, useRef, useState } from 'react'
 import { useLocalStorage } from 'usehooks-ts'
+
+type ResearchResponse = {
+  success: boolean
+  mode: 'answer' | 'report'
+  content: string
+  learnings?: string[]
+  visitedUrls?: string[]
+  mdPath?: string
+  docxPath?: string
+  error?: string
+}
+
+function extractMessageText(message: Message) {
+  return message.content
+    .filter((content) => content.type === 'text')
+    .map((content) => content.text)
+    .join('\n')
+    .trim()
+}
+
+function formatResearchResponse(result: ResearchResponse) {
+  const sections = [result.content?.trim() ?? '']
+
+  if (result.learnings && result.learnings.length > 0) {
+    sections.push(
+      `Learnings:\n${result.learnings.map((learning) => `- ${learning}`).join('\n')}`,
+    )
+  }
+
+  if (result.visitedUrls && result.visitedUrls.length > 0) {
+    sections.push(
+      `Sources:\n${result.visitedUrls.map((url) => `- ${url}`).join('\n')}`,
+    )
+  }
+
+  const savedFiles = [result.mdPath, result.docxPath].filter(Boolean)
+  if (savedFiles.length > 0) {
+    sections.push(`Saved files:\n${savedFiles.map((path) => `- ${path}`).join('\n')}`)
+  }
+
+  return sections.filter(Boolean).join('\n\n').trim()
+}
 
 export default function Home() {
   const [chatInput, setChatInput] = useLocalStorage('chat', '')
+  const [researchSettings, setResearchSettings] =
+    useLocalStorage<ResearchSettings>('researchSettings', {
+      breadth: 3,
+      depth: 2,
+      mode: 'answer',
+    })
   const [files, setFiles] = useState<File[]>([])
-  const [selectedTemplate, setSelectedTemplate] = useState<'auto' | TemplateId>(
-    'auto',
-  )
-  const [languageModel, setLanguageModel] = useLocalStorage<LLMModelConfig>(
-    'languageModel',
-    {
-      model: 'claude-3-5-sonnet-latest',
-    },
-  )
-
-  const posthog = usePostHog()
-
-  const [result, setResult] = useState<ExecutionResult>()
   const [messages, setMessages] = useState<Message[]>([])
-  const [fragment, setFragment] = useState<DeepPartial<FragmentSchema>>()
-  const [currentTab, setCurrentTab] = useState<'code' | 'fragment'>('code')
-  const [isPreviewLoading, setIsPreviewLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [isAuthDialogOpen, setAuthDialog] = useState(false)
   const [authView, setAuthView] = useState<AuthViewType>('sign_in')
   const [isRateLimited, setIsRateLimited] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
-  const { session, userTeam } = useAuth(setAuthDialog, setAuthView)
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const lastRequestRef = useRef<{
+    query: string
+    settings: ResearchSettings
+  } | null>(null)
+  const { session } = useAuth(setAuthDialog, setAuthView)
+  const posthog = usePostHog()
 
-  const filteredModels = modelsList.models.filter((model) => {
-    if (process.env.NEXT_PUBLIC_HIDE_LOCAL_MODELS) {
-      return model.providerId !== 'ollama'
+  async function runResearch(query: string, settings: ResearchSettings) {
+    abortControllerRef.current?.abort()
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
+    setIsLoading(true)
+    setErrorMessage('')
+    setIsRateLimited(false)
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          breadth: settings.breadth,
+          depth: settings.depth,
+          mode: settings.mode,
+        }),
+        signal: controller.signal,
+      })
+
+      const result = (await response.json()) as ResearchResponse
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          setIsRateLimited(true)
+        }
+
+        throw new Error(result.error || 'Research request failed.')
+      }
+
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: [{ type: 'text', text: formatResearchResponse(result) }],
+      }
+
+      setMessages((currentMessages) => [...currentMessages, assistantMessage])
+
+      posthog.capture('research_completed', {
+        mode: settings.mode,
+        breadth: settings.breadth,
+        depth: settings.depth,
+      })
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return
+      }
+
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Research request failed.',
+      )
+    } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null
+      }
+      setIsLoading(false)
     }
-    return true
-  })
+  }
 
-  const currentModel = filteredModels.find(
-    (model) => model.id === languageModel.model,
-  )
-  const currentTemplate =
-    selectedTemplate === 'auto'
-      ? templates
-      : { [selectedTemplate]: templates[selectedTemplate] }
-  const lastMessage = messages[messages.length - 1]
-
-  const { object, submit, isLoading, stop, error } = useObject({
-    api: '/api/chat',
-    schema,
-    onError: (error) => {
-      console.error('Error submitting request:', error)
-      if (error.message.includes('limit')) {
-        setIsRateLimited(true)
-      }
-
-      setErrorMessage(error.message)
-    },
-    onFinish: async ({ object: fragment, error }) => {
-      if (!error) {
-        // Check if this is a conversational response
-        if (fragment && fragment.responseText) {
-          // Message is already added/updated by the useEffect hook
-          // We just need to stop processing here
-          return
-        }
-
-        // Proceed with fragment generation if it's not a conversational response
-        if (fragment && fragment.code && fragment.template) {
-          // send it to /api/sandbox
-          console.log('fragment', fragment)
-          setIsPreviewLoading(true)
-          posthog.capture('fragment_generated', {
-            template: fragment?.template,
-          })
-
-          const response = await fetch('/api/sandbox', {
-            method: 'POST',
-            body: JSON.stringify({
-              fragment,
-              userID: session?.user?.id,
-              teamID: userTeam?.id,
-              accessToken: session?.access_token,
-            }),
-          })
-
-          const result = await response.json()
-          console.log('result', result)
-          posthog.capture('sandbox_created', { url: result.url })
-
-          setResult(result)
-          setCurrentPreview({ fragment, result })
-          setCurrentTab('fragment')
-          setIsPreviewLoading(false)
-        }
-      }
-    },
-  })
-
-  useEffect(() => {
-    if (object) {
-      setFragment(object)
-
-      let content: Message['content'] = []
-      let isConversational = false
-
-      // Handle conversational response
-      if (object.responseText) {
-        content = [{ type: 'text', text: object.responseText }]
-        isConversational = true
-      } 
-      // Handle fragment generation response
-      else if (object.commentary || object.code) {
-        if (object.commentary) {
-          content.push({ type: 'text', text: object.commentary })
-        }
-        if (object.code) {
-          content.push({ type: 'code', text: object.code })
-        }
-      }
-
-      // Use functional update to safely manage state transitions
-      setMessages(prevMessages => {
-        const currentLastMessage = prevMessages[prevMessages.length - 1];
-
-        const messagePayload = {
-          role: 'assistant' as const,
-          content,
-          object: isConversational ? undefined : object,
-        }
-
-        if (!currentLastMessage || currentLastMessage.role !== 'assistant') {
-          // Add new message
-          return [...prevMessages, messagePayload];
-        } else {
-          // Update last message
-          const updatedMessages = [...prevMessages];
-          updatedMessages[prevMessages.length - 1] = {
-            ...currentLastMessage, // Preserve existing fields like result
-            ...messagePayload, // Overwrite content and object
-          };
-          return updatedMessages;
-        }
-      });
-    }
-  }, [object, setFragment, setMessages])
-
-  useEffect(() => {
-    if (error) stop()
-  }, [error])
-
-  async function handleSubmitAuth(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
 
-    if (!session) {
-      return setAuthDialog(true)
+    const query = chatInput.trim()
+    if (!query) {
+      return
     }
 
     if (isLoading) {
-      stop()
+      abortControllerRef.current?.abort()
     }
 
-    const content: Message['content'] = [{ type: 'text', text: chatInput }]
-    const images = await toMessageImage(files)
-
-    if (images.length > 0) {
-      images.forEach((image) => {
-        content.push({ type: 'image', image })
-      })
+    const userMessage: Message = {
+      role: 'user',
+      content: [{ type: 'text', text: query }],
     }
 
-    // Add user message directly
-    const userMessage: Message = { role: 'user', content }
-    const updatedMessages = [...messages, userMessage]
-    setMessages(updatedMessages)
-
-    submit({
-      userID: session?.user?.id,
-      teamID: userTeam?.id,
-      messages: toAISDKMessages(updatedMessages),
-      template: currentTemplate,
-      model: currentModel,
-      config: languageModel,
-    })
+    setMessages((currentMessages) => [...currentMessages, userMessage])
+    lastRequestRef.current = {
+      query,
+      settings: researchSettings,
+    }
 
     setChatInput('')
     setFiles([])
-    setCurrentTab('code')
 
-    posthog.capture('chat_submit', {
-      template: selectedTemplate,
-      model: languageModel.model,
+    posthog.capture('research_submit', {
+      mode: researchSettings.mode,
+      breadth: researchSettings.breadth,
+      depth: researchSettings.depth,
     })
+
+    await runResearch(query, researchSettings)
   }
 
-  function retry() {
-    submit({
-      userID: session?.user?.id,
-      teamID: userTeam?.id,
-      messages: toAISDKMessages(messages),
-      template: currentTemplate,
-      model: currentModel,
-      config: languageModel,
-    })
+  async function retry() {
+    const previousRequest = lastRequestRef.current
+
+    if (!previousRequest || isLoading) {
+      return
+    }
+
+    await runResearch(previousRequest.query, previousRequest.settings)
+  }
+
+  function stop() {
+    abortControllerRef.current?.abort()
+    setIsLoading(false)
   }
 
   function handleSaveInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -236,20 +207,18 @@ export default function Home() {
       : console.warn('Supabase is not initialized')
   }
 
-  function handleLanguageModelChange(e: LLMModelConfig) {
-    setLanguageModel({ ...languageModel, ...e })
-  }
-
   function handleSocialClick(target: 'github' | 'x' | 'discord') {
     if (target === 'github') {
-      window.open('https://github.com/OmniS0FT', '_blank')
-    } else if (target === 'x') {
-      window.open('https://x.com/e2b_dev', '_blank')
-    } else if (target === 'discord') {
-      window.open('https://discord.gg/U7KEcGErtQ', '_blank')
+      window.open('https://github.com/iBz-04/Seeker', '_blank')
+      return
     }
 
-    posthog.capture(`${target}_click`)
+    if (target === 'x') {
+      window.open('https://x.com/e2b_dev', '_blank')
+      return
+    }
+
+    window.open('https://discord.gg/U7KEcGErtQ', '_blank')
   }
 
   function handleClearChat() {
@@ -257,23 +226,36 @@ export default function Home() {
     setChatInput('')
     setFiles([])
     setMessages([])
-    setFragment(undefined)
-    setResult(undefined)
-    setCurrentTab('code')
-    setIsPreviewLoading(false)
-  }
-
-  function setCurrentPreview(preview: {
-    fragment: DeepPartial<FragmentSchema> | undefined
-    result: ExecutionResult | undefined
-  }) {
-    setFragment(preview.fragment)
-    setResult(preview.result)
+    setErrorMessage('')
+    setIsRateLimited(false)
+    lastRequestRef.current = null
   }
 
   function handleUndo() {
-    setMessages((previousMessages) => [...previousMessages.slice(0, -2)])
-    setCurrentPreview({ fragment: undefined, result: undefined })
+    stop()
+
+    setMessages((currentMessages) => {
+      const updatedMessages = [...currentMessages]
+
+      if (
+        updatedMessages.length > 0 &&
+        updatedMessages[updatedMessages.length - 1].role === 'assistant'
+      ) {
+        updatedMessages.pop()
+      }
+
+      if (
+        updatedMessages.length > 0 &&
+        updatedMessages[updatedMessages.length - 1].role === 'user'
+      ) {
+        const removedMessage = updatedMessages.pop()
+        if (removedMessage) {
+          setChatInput(extractMessageText(removedMessage))
+        }
+      }
+
+      return updatedMessages
+    })
   }
 
   return (
@@ -286,66 +268,47 @@ export default function Home() {
           supabase={supabase}
         />
       )}
-      <div className="grid w-full md:grid-cols-2">
-        <div
-          className={`flex flex-col w-full max-h-full max-w-[800px] mx-auto px-4 overflow-auto ${fragment ? 'col-span-1' : 'col-span-2'}`}
-        >
+      <div className="flex w-full">
+        <div className="flex flex-col w-full max-h-full max-w-[800px] mx-auto px-4 overflow-auto">
           <NavBar
             session={session}
             showLogin={() => setAuthDialog(true)}
             signOut={logout}
             onSocialClick={handleSocialClick}
             onClear={handleClearChat}
-            canClear={messages.length > 0}
-            canUndo={messages.length > 1 && !isLoading}
+            canClear={messages.length > 0 || chatInput.length > 0}
+            canUndo={messages.length > 0 && !isLoading}
             onUndo={handleUndo}
           />
-          <Chat
-            messages={messages}
-            isLoading={isLoading}
-            setCurrentPreview={setCurrentPreview}
-          />
+          <Chat messages={messages} isLoading={isLoading} setCurrentPreview={() => {}} />
           <ChatInput
             retry={retry}
-            isErrored={error !== undefined}
+            isErrored={errorMessage.length > 0}
             errorMessage={errorMessage}
             isLoading={isLoading}
             isRateLimited={isRateLimited}
             stop={stop}
             input={chatInput}
             handleInputChange={handleSaveInputChange}
-            handleSubmit={handleSubmitAuth}
-            isMultiModal={currentModel?.multiModal || false}
+            handleSubmit={handleSubmit}
+            isMultiModal={false}
             files={files}
             handleFileChange={handleFileChange}
           >
-            <ChatPicker
-              templates={templates}
-              selectedTemplate={selectedTemplate}
-              onSelectedTemplateChange={setSelectedTemplate}
-              models={filteredModels}
-              languageModel={languageModel}
-              onLanguageModelChange={handleLanguageModelChange}
-            />
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="rounded-full border px-2 py-1">
+                {researchSettings.mode === 'report' ? 'Full report' : 'Short answer'}
+              </span>
+              <span>
+                Breadth {researchSettings.breadth} · Depth {researchSettings.depth}
+              </span>
+            </div>
             <ChatSettings
-              languageModel={languageModel}
-              onLanguageModelChange={handleLanguageModelChange}
-              apiKeyConfigurable={!process.env.NEXT_PUBLIC_NO_API_KEY_INPUT}
-              baseURLConfigurable={!process.env.NEXT_PUBLIC_NO_BASE_URL_INPUT}
+              settings={researchSettings}
+              onSettingsChange={setResearchSettings}
             />
           </ChatInput>
         </div>
-        <Preview
-          teamID={userTeam?.id}
-          accessToken={session?.access_token}
-          selectedTab={currentTab}
-          onSelectedTabChange={setCurrentTab}
-          isChatLoading={isLoading}
-          isPreviewLoading={isPreviewLoading}
-          fragment={fragment}
-          result={result as ExecutionResult}
-          onClose={() => setFragment(undefined)}
-        />
       </div>
     </main>
   )

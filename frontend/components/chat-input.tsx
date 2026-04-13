@@ -163,6 +163,7 @@ export function ChatInput({
         >
           <span className="flex-1 px-1.5">{errorMessage}</span>
           <button
+            type="button"
             className={`px-2 py-1 rounded-sm ${
               isRateLimited ? 'bg-orange-400/20' : 'bg-red-400/20'
             }`}
@@ -188,8 +189,7 @@ export function ChatInput({
             maxRows={5}
             className="text-normal px-3 resize-none ring-0 bg-inherit w-full m-0 outline-none"
             required={true}
-            placeholder="Describe your app..."
-            disabled={isErrored}
+            placeholder="What do you want Seeker to research?"
             value={input}
             onChange={handleInputChange}
             onPaste={isMultiModal ? handlePaste : undefined}
@@ -209,7 +209,7 @@ export function ChatInput({
                 <Tooltip delayDuration={0}>
                   <TooltipTrigger asChild>
                     <Button
-                      disabled={!isMultiModal || isErrored}
+                      disabled={!isMultiModal}
                       type="button"
                       variant="outline"
                       size="icon"
@@ -233,7 +233,6 @@ export function ChatInput({
                   <Tooltip delayDuration={0}>
                     <TooltipTrigger asChild>
                       <Button
-                        disabled={isErrored}
                         variant="default"
                         size="icon"
                         type="submit"
@@ -270,7 +269,7 @@ export function ChatInput({
         </div>
       </div>
       <p className="text-xs text-muted-foreground mt-2 text-center">
-      ✶ DevGPT might make mistakes, please cross-check the answers.
+        Seeker can make mistakes. Cross-check important claims and sources.
       </p>
     </form>
   )

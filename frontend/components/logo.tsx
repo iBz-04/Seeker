@@ -1,17 +1,17 @@
-export type LogoStyle = 'e2b' | 'fragments' | 'devgpt'
+export type LogoStyle = 'e2b' | 'fragments' | 'seeker'
 
 export default function Logo({
-  style = 'devgpt',
+  style = 'seeker',
   width,
   height,
   className,
   ...props
 }: { style?: LogoStyle } & React.SVGProps<SVGSVGElement>) {
-  if (style === 'devgpt') {
+  if (style === 'seeker') {
     return (
-      <img 
-        src="/thirdparty/logos/devgpt.svg" 
-        alt="DevGPT Logo" 
+      <img
+        src="/thirdparty/logos/seeker.svg"
+        alt="Seeker Logo"
         width={width}
         height={height}
         className={className}

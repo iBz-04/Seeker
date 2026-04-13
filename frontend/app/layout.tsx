@@ -8,8 +8,8 @@ import { Inter } from 'next/font/google'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'DevGPT',
-  description: "Interact with gpt 4.1, 4.1-mini, and 4.1-nano to generate code snippets and simple apps",
+  title: 'Seeker',
+  description: "run deep research on any topic and get a comprehensive report with sources in seconds.",
 }
 
 export default function RootLayout({

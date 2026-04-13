@@ -1,7 +1,7 @@
 import cors from 'cors';
 import express, { Request, Response } from 'express';
 
-import { deepResearch, writeFinalAnswer } from './deep-research';
+import { deepResearch, writeFinalAnswer, writeFinalReport } from './deep-research';
 
 const app = express();
 const port = process.env.PORT || 3051;
@@ -18,10 +18,14 @@ function log(...args: any[]) {
 // API endpoint to run research
 app.post('/api/research', async (req: Request, res: Response) => {
   try {
-    const { query, depth = 3, breadth = 3 } = req.body;
+    const { query, depth = 3, breadth = 3, mode = 'answer' } = req.body;
 
     if (!query) {
       return res.status(400).json({ error: 'Query is required' });
+    }
+
+    if (mode !== 'answer' && mode !== 'report') {
+      return res.status(400).json({ error: 'Mode must be "answer" or "report"' });
     }
 
     log('\nStarting research...\n');
@@ -37,15 +41,33 @@ app.post('/api/research', async (req: Request, res: Response) => {
       `\n\nVisited URLs (${visitedUrls.length}):\n\n${visitedUrls.join('\n')}`,
     );
 
+    if (mode === 'report') {
+      const { reportMarkdown, mdPath, docxPath } = await writeFinalReport({
+        prompt: query,
+        learnings,
+        visitedUrls,
+      });
+
+      return res.json({
+        success: true,
+        mode,
+        content: reportMarkdown,
+        learnings,
+        visitedUrls,
+        mdPath,
+        docxPath,
+      });
+    }
+
     const { exactAnswer, mdPath, docxPath } = await writeFinalAnswer({
       prompt: query,
       learnings,
     });
 
-    // Return the results
     return res.json({
       success: true,
-      answer: exactAnswer,
+      mode,
+      content: exactAnswer,
       learnings,
       visitedUrls,
       mdPath,

@@ -77,7 +77,7 @@ export function Chat({
       {isLoading && (
         <div className="flex items-center gap-1 text-sm text-muted-foreground">
           <LoaderIcon strokeWidth={2} className="animate-spin w-4 h-4" />
-          <span>Generating...</span>
+          <span>Researching...</span>
         </div>
       )}
     </div>

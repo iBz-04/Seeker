@@ -1,119 +1,72 @@
-import { Duration } from '@/lib/duration'
-import { getModelClient } from '@/lib/models'
-import { LLMModel, LLMModelConfig } from '@/lib/models'
-import { toPrompt } from '@/lib/prompt'
-import ratelimit from '@/lib/ratelimit'
-import { fragmentSchema as schema } from '@/lib/schema'
-import { Templates } from '@/lib/templates'
-import { streamObject, LanguageModel, CoreMessage } from 'ai'
+export const maxDuration = 300
 
-export const maxDuration = 60
+const researchApiUrl =
+  process.env.SEEKER_BACKEND_URL ?? 'http://127.0.0.1:3051/api/research'
 
-const rateLimitMaxRequests = process.env.RATE_LIMIT_MAX_REQUESTS
-  ? parseInt(process.env.RATE_LIMIT_MAX_REQUESTS)
-  : 10
-const ratelimitWindow = process.env.RATE_LIMIT_WINDOW
-  ? (process.env.RATE_LIMIT_WINDOW as Duration)
-  : '1d'
+type ResearchMode = 'answer' | 'report'
+
+type ChatRequestBody = {
+  query?: string
+  breadth?: number
+  depth?: number
+  mode?: ResearchMode
+}
 
 export async function POST(req: Request) {
-  const {
-    messages,
-    userID,
-    teamID,
-    template,
-    model,
-    config,
-  }: {
-    messages: CoreMessage[]
-    userID: string | undefined
-    teamID: string | undefined
-    template: Templates
-    model: LLMModel
-    config: LLMModelConfig
-  } = await req.json()
-
-  const limit = !config.apiKey
-    ? await ratelimit(
-        req.headers.get('x-forwarded-for'),
-        rateLimitMaxRequests,
-        ratelimitWindow,
-      )
-    : false
-
-  if (limit) {
-    return new Response('You have reached your request limit for the day.', {
-      status: 429,
-      headers: {
-        'X-RateLimit-Limit': limit.amount.toString(),
-        'X-RateLimit-Remaining': limit.remaining.toString(),
-        'X-RateLimit-Reset': limit.reset.toString(),
-      },
-    })
-  }
-
-  console.log('userID', userID)
-  console.log('teamID', teamID)
-  // console.log('template', template)
-  console.log('model', model)
-  // console.log('config', config)
-
-  const { model: modelNameString, apiKey: modelApiKey, ...modelParams } = config
-  const modelClient = getModelClient(model, config)
+  let body: ChatRequestBody
 
   try {
-    const stream = await streamObject({
-      model: modelClient as LanguageModel,
-      schema,
-      system: toPrompt(template),
-      messages,
-      maxRetries: 0, // do not retry on errors
-      ...modelParams,
+    body = await req.json()
+  } catch {
+    return Response.json({ error: 'Invalid JSON request body.' }, { status: 400 })
+  }
+
+  const query = body.query?.trim()
+  const breadth = Number.isFinite(body.breadth) ? Number(body.breadth) : 3
+  const depth = Number.isFinite(body.depth) ? Number(body.depth) : 2
+  const mode: ResearchMode = body.mode === 'report' ? 'report' : 'answer'
+
+  if (!query) {
+    return Response.json({ error: 'A research query is required.' }, { status: 400 })
+  }
+
+  try {
+    const response = await fetch(researchApiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query,
+        breadth,
+        depth,
+        mode,
+      }),
+      cache: 'no-store',
     })
 
-    return stream.toTextStreamResponse()
-  } catch (error: any) {
-    const isRateLimitError =
-      error && (error.statusCode === 429 || error.message.includes('limit'))
-    const isOverloadedError =
-      error && (error.statusCode === 529 || error.statusCode === 503)
-    const isAccessDeniedError =
-      error && (error.statusCode === 403 || error.statusCode === 401)
+    if (!response.ok) {
+      const errorText = await response.text()
 
-    if (isRateLimitError) {
-      return new Response(
-        'The provider is currently unavailable due to request limit. Try using your own API key.',
+      return Response.json(
         {
-          status: 429,
+          error: errorText || 'The research backend returned an error.',
         },
+        { status: response.status },
       )
     }
 
-    if (isOverloadedError) {
-      return new Response(
-        'The provider is currently unavailable. Please try again later.',
-        {
-          status: 529,
-        },
-      )
-    }
+    const result = await response.json()
+    return Response.json(result)
+  } catch (error) {
+    console.error('Research proxy error:', error)
 
-    if (isAccessDeniedError) {
-      return new Response(
-        'Access denied. Please make sure your API key is valid.',
-        {
-          status: 403,
-        },
-      )
-    }
-
-    console.error('Error:', error)
-
-    return new Response(
-      'An unexpected error has occurred. Please try again later.',
+    return Response.json(
       {
-        status: 500,
+        error:
+          'The research backend is unavailable. Make sure the backend API is running on http://127.0.0.1:3051 or set SEEKER_BACKEND_URL.',
       },
+      { status: 503 },
     )
   }
 }
