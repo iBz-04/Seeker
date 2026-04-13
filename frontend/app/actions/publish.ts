@@ -1,8 +1,8 @@
 'use server'
 
 import { Duration, ms } from '@/lib/duration'
+import { setFragmentUrl } from '@/lib/vercel-kv'
 import { Sandbox } from '@e2b/code-interpreter'
-import { kv } from '@vercel/kv'
 import { customAlphabet } from 'nanoid'
 
 const nanoid = customAlphabet('1234567890abcdef', 7)
@@ -28,7 +28,7 @@ export async function publish(
 
   if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
     const id = nanoid()
-    await kv.set(`fragment:${id}`, url, { px: expiration })
+    await setFragmentUrl(id, url, expiration)
 
     return {
       url: process.env.NEXT_PUBLIC_SITE_URL
