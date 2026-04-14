@@ -20,6 +20,7 @@ type ResearchResponse = {
   content: string
   learnings?: string[]
   visitedUrls?: string[]
+  warning?: string
   mdPath?: string
   docxPath?: string
   error?: string
@@ -61,6 +62,10 @@ function formatResearchResponse(result: ResearchResponse) {
     sections.push(
       `Sources:\n${result.visitedUrls.map((url) => `- ${url}`).join('\n')}`,
     )
+  }
+
+  if (result.warning) {
+    sections.push(`Research warning: ${result.warning}`)
   }
 
   // Do not append raw file references to the chat text if it's a report

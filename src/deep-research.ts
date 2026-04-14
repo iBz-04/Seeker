@@ -27,6 +27,8 @@ type ResearchResult = {
   visitedUrls: string[];
 };
 
+type SearchResultItem = SearchResponse['data'][number];
+
 // increase this if you have higher API rate limits
 const ConcurrencyLimit = 2;
 
@@ -34,10 +36,32 @@ const ConcurrencyLimit = 2;
 const firecrawlApiKey =
   process.env.FIRECRAWL_KEY ?? process.env.FIRECRAWL_API_KEY ?? '';
 
+if (!firecrawlApiKey) {
+  console.warn(
+    '[deep-research] FIRECRAWL_KEY/FIRECRAWL_API_KEY is not set. Source URLs may be empty.',
+  );
+}
+
 const firecrawl = new FirecrawlApp({
   apiKey: firecrawlApiKey,
   apiUrl: process.env.FIRECRAWL_BASE_URL,
 });
+
+function isHttpUrl(value: unknown): value is string {
+  return typeof value === 'string' && /^https?:\/\//i.test(value);
+}
+
+function extractSourceUrl(item: SearchResultItem): string | null {
+  const candidates = [
+    item.url,
+    item.metadata?.sourceURL,
+    item.metadata?.url,
+    item.metadata?.ogUrl,
+  ];
+
+  const firstValid = candidates.find(isHttpUrl);
+  return firstValid ?? null;
+}
 
 // take en user query, return a list of SERP queries
 async function generateSerpQueries({
@@ -97,6 +121,10 @@ async function processSerpResult({
   );
   log(`Ran ${query}, found ${contents.length} contents`);
 
+  if (contents.length === 0) {
+    return { learnings: [], followUpQuestions: [] };
+  }
+
   const res = await generateObject({
     model: getModel(),
     abortSignal: AbortSignal.timeout(60_000),
@@ -149,7 +177,10 @@ export async function writeFinalReport({
   });
 
   // Append the visited URLs section to the report
-  const urlsSection = `\n\n## Sources\n\n${visitedUrls.map(url => `- ${url}`).join('\n')}`;
+  const urlsSection =
+    visitedUrls.length > 0
+      ? `\n\n## Sources\n\n${visitedUrls.map(url => `- ${url}`).join('\n')}`
+      : '\n\n## Sources\n\nNo source URLs were captured for this run.';
   const finalReport = res.object.reportMarkdown + urlsSection;
 
   const ts = Date.now();
@@ -264,7 +295,7 @@ export async function deepResearch({
           });
 
           // Collect URLs from this search
-          const newUrls = compact(result.data.map(item => item.url));
+          const newUrls = compact(result.data.map(extractSourceUrl));
           const newBreadth = Math.ceil(breadth / 2);
           const newDepth = depth - 1;
 

@@ -94,6 +94,11 @@ app.post('/api/research', async (req: Request, res: Response) => {
       `\n\nVisited URLs (${visitedUrls.length}):\n\n${visitedUrls.join('\n')}`,
     );
 
+    const warning =
+      visitedUrls.length === 0
+        ? 'No source URLs were captured. This usually means Firecrawl credentials are missing, the request timed out, or target pages blocked scraping.'
+        : undefined;
+
     if (mode === 'report') {
       const { reportMarkdown, mdPath, docxPath } = await writeFinalReport({
         prompt: query,
@@ -107,6 +112,7 @@ app.post('/api/research', async (req: Request, res: Response) => {
         content: reportMarkdown,
         learnings,
         visitedUrls,
+        warning,
         mdPath,
         docxPath,
       });
@@ -124,6 +130,7 @@ app.post('/api/research', async (req: Request, res: Response) => {
       content: exactAnswer,
       learnings,
       visitedUrls,
+      warning,
       mdPath,
       docxPath,
     });
