@@ -73,20 +73,53 @@ export function ChatSettings({
         <DropdownMenuSeparator />
         <div className="flex flex-col gap-2 px-2 py-2">
           <Label htmlFor="research-breadth">Breadth</Label>
-          <Input
-            id="research-breadth"
-            type="number"
-            min={1}
-            max={10}
-            step={1}
-            value={settings.breadth}
-            onChange={(e) =>
-              onSettingsChange({
-                ...settings,
-                breadth: Math.min(10, Math.max(1, Number(e.target.value) || 1)),
-              })
-            }
-          />
+          <div className="flex items-center gap-2">
+            <Input
+              id="research-breadth"
+              type="number"
+              min={1}
+              max={10}
+              step={1}
+              className="w-16"
+              value={settings.breadth === 0 ? '' : settings.breadth}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '') {
+                  onSettingsChange({ ...settings, breadth: 0 }); // Temp state for empty input
+                  return;
+                }
+                const num = Number(val);
+                if (!isNaN(num)) {
+                  onSettingsChange({
+                    ...settings,
+                    breadth: Math.min(10, Math.max(1, num)),
+                  });
+                }
+              }}
+              onBlur={() => {
+                if (settings.breadth < 1 || settings.breadth > 10) {
+                  onSettingsChange({
+                    ...settings,
+                    breadth: Math.min(10, Math.max(1, settings.breadth || 3)),
+                  });
+                }
+              }}
+            />
+            <input 
+              type="range"
+              min={1}
+              max={10}
+              step={1}
+              className="flex-1 cursor-pointer accent-primary"
+              value={settings.breadth || 1}
+              onChange={(e) =>
+                onSettingsChange({
+                  ...settings,
+                  breadth: Number(e.target.value),
+                })
+              }
+            />
+          </div>
           <p className="text-xs text-muted-foreground">
             Higher breadth explores more search branches.
           </p>
@@ -94,20 +127,53 @@ export function ChatSettings({
         <DropdownMenuSeparator />
         <div className="flex flex-col gap-2 px-2 py-2">
           <Label htmlFor="research-depth">Depth</Label>
-          <Input
-            id="research-depth"
-            type="number"
-            min={1}
-            max={5}
-            step={1}
-            value={settings.depth}
-            onChange={(e) =>
-              onSettingsChange({
-                ...settings,
-                depth: Math.min(5, Math.max(1, Number(e.target.value) || 1)),
-              })
-            }
-          />
+          <div className="flex items-center gap-2">
+            <Input
+              id="research-depth"
+              type="number"
+              min={1}
+              max={5}
+              step={1}
+              className="w-16"
+              value={settings.depth === 0 ? '' : settings.depth}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '') {
+                  onSettingsChange({ ...settings, depth: 0 }); // Temp state for empty input
+                  return;
+                }
+                const num = Number(val);
+                if (!isNaN(num)) {
+                  onSettingsChange({
+                    ...settings,
+                    depth: Math.min(5, Math.max(1, num)),
+                  });
+                }
+              }}
+              onBlur={() => {
+                if (settings.depth < 1 || settings.depth > 5) {
+                  onSettingsChange({
+                    ...settings,
+                    depth: Math.min(5, Math.max(1, settings.depth || 2)),
+                  });
+                }
+              }}
+            />
+            <input 
+              type="range"
+              min={1}
+              max={5}
+              step={1}
+              className="flex-1 cursor-pointer accent-primary"
+              value={settings.depth || 1}
+              onChange={(e) =>
+                onSettingsChange({
+                  ...settings,
+                  depth: Number(e.target.value),
+                })
+              }
+            />
+          </div>
           <p className="text-xs text-muted-foreground">
             Higher depth follows results further before finalizing.
           </p>

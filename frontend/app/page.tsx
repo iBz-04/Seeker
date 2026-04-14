@@ -40,7 +40,13 @@ function extractMessageText(message: Message) {
 }
 
 function formatResearchResponse(result: ResearchResponse) {
-  const sections = [result.content?.trim() ?? '']
+  const sections = []
+
+  if (result.mode !== 'report') {
+    sections.push(result.content?.trim() ?? '')
+  } else {
+    sections.push('Research report generated successfully. Please download the document below to view the full contents.')
+  }
 
   if (result.mode !== 'report' && result.learnings && result.learnings.length > 0) {
     sections.push(
