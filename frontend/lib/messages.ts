@@ -17,11 +17,19 @@ export type MessageImage = {
   image: string
 }
 
+export type ReportFile = {
+  title: string
+  mdPath?: string
+  docxPath?: string
+  previewText?: string
+}
+
 export type Message = {
   role: 'assistant' | 'user'
   content: Array<MessageText | MessageCode | MessageImage>
   object?: DeepPartial<FragmentSchema>
   result?: ExecutionResult
+  reportFile?: ReportFile
 }
 
 export function toAISDKMessages(messages: Message[]) {

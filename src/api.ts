@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import cors from 'cors';
 import express, { Request, Response } from 'express';
 
@@ -6,6 +8,7 @@ import {
   writeFinalAnswer,
   writeFinalReport,
 } from './deep-research';
+import { generateFeedback } from './feedback';
 
 export const app = express();
 
@@ -20,6 +23,47 @@ function log(...args: any[]) {
 
 app.get('/healthz', (_req: Request, res: Response) => {
   return res.status(200).json({ ok: true });
+});
+
+// Generic download endpoint for reports
+app.get('/api/download/:filename', (req: Request, res: Response) => {
+  const filename = req.params.filename;
+  if (!filename || filename.includes('/') || filename.includes('..')) {
+    return res.status(400).json({ error: 'Invalid filename' });
+  }
+
+  const filePath = path.join(process.cwd(), filename);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+
+  res.download(filePath, filename, (err) => {
+    if (err) {
+      console.error('Error downloading file:', err);
+    }
+  });
+});
+
+// API endpoint to generate feedback questions
+app.post('/api/feedback', async (req: Request, res: Response) => {
+  try {
+    const { query } = req.body;
+    if (!query) {
+      return res.status(400).json({ error: 'Query is required' });
+    }
+
+    const questions = await generateFeedback({
+      query,
+    });
+
+    return res.json({ success: true, questions });
+  } catch (error: unknown) {
+    console.error('Error in feedback API:', error);
+    return res.status(500).json({
+      error: 'An error occurred generating feedback',
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
 });
 
 // API endpoint to run research

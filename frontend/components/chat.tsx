@@ -2,8 +2,15 @@ import { Message } from '@/lib/messages'
 import { FragmentSchema } from '@/lib/schema'
 import { ExecutionResult } from '@/lib/types'
 import { DeepPartial } from 'ai'
-import { LoaderIcon, Terminal } from 'lucide-react'
-import { useEffect } from 'react'
+import { LoaderIcon, Terminal, FileText, MoreHorizontal, Download, Share, Eye } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 export function Chat({
   messages,
@@ -17,6 +24,28 @@ export function Chat({
     result: ExecutionResult | undefined
   }) => void
 }) {
+  const loadingStatuses = [
+    "Reading requirements...",
+    "Searching the web...",
+    "Analyzing search results...",
+    "Gathering learnings...",
+    "Researching...",
+    "Drafting content...",
+  ];
+  const [loadingText, setLoadingText] = useState(loadingStatuses[0]);
+
+  useEffect(() => {
+    if (isLoading) {
+      let index = 0;
+      setLoadingText(loadingStatuses[index]);
+      const interval = setInterval(() => {
+        index = (index + 1) % loadingStatuses.length;
+        setLoadingText(loadingStatuses[index]);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [isLoading]);
+
   useEffect(() => {
     const chatContainer = document.getElementById('chat-container')
     if (chatContainer) {
@@ -49,6 +78,67 @@ export function Chat({
               )
             }
           })}
+          {message.reportFile && (
+            <div className="w-full md:w-[600px] mt-4 flex flex-col gap-2 rounded-xl dark:bg-[#1d1d1d] bg-white border dark:border-[#333] shadow-sm relative overflow-hidden font-sans">
+              <div className="flex flex-row items-center justify-between p-3 border-b dark:border-[#333]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded shrink-0 bg-blue-500/10 flex items-center justify-center">
+                    <FileText className="text-blue-400 w-5 h-5 fill-blue-500/20" />
+                  </div>
+                  <span className="font-semibold text-base line-clamp-1">{message.reportFile.title}</span>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md text-muted-foreground outline-none focus-visible:ring-0">
+                      <MoreHorizontal className="h-5 w-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48 font-sans">
+                    <DropdownMenuItem className="cursor-pointer">
+                      <Eye className="mr-2 h-4 w-4" /> 
+                      <span>Preview</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="cursor-pointer">
+                      <Share className="mr-2 h-4 w-4" /> 
+                      <span>Share</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="cursor-pointer"
+                      onClick={() =>
+                        window.open(
+                          `/api/download?file=${message.reportFile?.mdPath}`,
+                          '_blank'
+                        )
+                      }
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      <span>Download .md</span>
+                    </DropdownMenuItem>
+                    {message.reportFile.docxPath && (
+                      <DropdownMenuItem
+                        className="cursor-pointer"
+                        onClick={() =>
+                          window.open(
+                            `/api/download?file=${message.reportFile?.docxPath}`,
+                            '_blank'
+                          )
+                        }
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        <span>Download Word (.docx)</span>
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              {message.reportFile.previewText && (
+                <div className="p-4 text-sm text-muted-foreground line-clamp-3">
+                  <div className="font-semibold text-foreground mb-1 text-base">Introduction</div>
+                  {message.reportFile.previewText.replace(/^#+.*$/m, '').trim()}
+                </div>
+              )}
+            </div>
+          )}
           {message.object && (
             <div
               onClick={() =>
@@ -75,9 +165,9 @@ export function Chat({
         </div>
       ))}
       {isLoading && (
-        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+        <div className="flex items-center gap-1 text-sm text-muted-foreground animate-pulse transition-all">
           <LoaderIcon strokeWidth={2} className="animate-spin w-4 h-4" />
-          <span>Researching...</span>
+          <span>{loadingText}</span>
         </div>
       )}
     </div>

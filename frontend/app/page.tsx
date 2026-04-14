@@ -58,11 +58,7 @@ function formatResearchResponse(result: ResearchResponse) {
     )
   }
 
-  const savedFiles = [result.mdPath, result.docxPath].filter(Boolean)
-  if (savedFiles.length > 0) {
-    sections.push(`Saved files:\n${savedFiles.map((path) => `- ${path}`).join('\n')}`)
-  }
-
+  // Do not append raw file references to the chat text if it's a report
   return sections.filter(Boolean).join('\n\n').trim()
 }
 
@@ -78,6 +74,7 @@ export default function Home() {
   const [authView, setAuthView] = useState<AuthViewType>('sign_in')
   const [isRateLimited, setIsRateLimited] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [pendingFeedback, setPendingFeedback] = useState<{ query: string, questions: string[] } | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const lastRequestRef = useRef<{
     query: string
@@ -133,6 +130,15 @@ export default function Home() {
         content: [{ type: 'text', text: formatResearchResponse(result) }],
       }
 
+      if (result.mode === 'report' && (result.mdPath || result.docxPath)) {
+        assistantMessage.reportFile = {
+          title: `Research Report: ${query}`,
+          mdPath: result.mdPath,
+          docxPath: result.docxPath,
+          previewText: result.content?.substring(0, 300) + '...'
+        }
+      }
+
       setMessages((currentMessages) => [...currentMessages, assistantMessage])
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
@@ -168,13 +174,65 @@ export default function Home() {
     }
 
     setMessages((currentMessages) => [...currentMessages, userMessage])
+    setChatInput('')
+    setFiles([])
+
+    if (pendingFeedback) {
+      const combinedQuery = `Initial Query: ${pendingFeedback.query}\nFollow-up Questions and Answers:\n${pendingFeedback.questions.map((q) => `Q: ${q}`).join('\n')}\nUser's Answers:\n${query}`;
+
+      setPendingFeedback(null);
+      lastRequestRef.current = {
+        query: combinedQuery,
+        settings: activeResearchSettings,
+      }
+      await runResearch(combinedQuery, activeResearchSettings);
+      return;
+    }
+
+    if (activeResearchSettings.mode === 'report') {
+      setIsLoading(true);
+      setErrorMessage('');
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      try {
+        const response = await fetch('/api/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) throw new Error('Feedback request failed');
+        
+        const result = await response.json();
+        
+        if (result.questions && result.questions.length > 0) {
+          setPendingFeedback({ query, questions: result.questions });
+          const feedbackMessage: Message = {
+            role: 'assistant',
+            content: [{
+              type: 'text',
+              text: `To better understand your research needs, please answer these follow-up questions:\n\n${result.questions.map((q: string, i: number) => `${i + 1}. ${q}`).join('\n')}`
+            }]
+          };
+          setMessages((current) => [...current, feedbackMessage]);
+          setIsLoading(false);
+          return;
+        }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') {
+          setIsLoading(false);
+          return;
+        }
+        console.error(e);
+      }
+    }
+
     lastRequestRef.current = {
       query,
       settings: activeResearchSettings,
     }
-
-    setChatInput('')
-    setFiles([])
 
     await runResearch(query, activeResearchSettings)
   }
