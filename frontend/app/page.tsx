@@ -11,7 +11,6 @@ import { NavBar } from '@/components/navbar'
 import { AuthViewType, useAuth } from '@/lib/auth'
 import { Message } from '@/lib/messages'
 import { supabase } from '@/lib/supabase'
-import { usePostHog } from 'posthog-js/react'
 import { SetStateAction, useEffect, useRef, useState } from 'react'
 import { useLocalStorage } from 'usehooks-ts'
 
@@ -85,7 +84,6 @@ export default function Home() {
     settings: ResearchSettings
   } | null>(null)
   const { session } = useAuth(setAuthDialog, setAuthView)
-  const posthog = usePostHog()
   const activeChatInput = isHydrated ? chatInput : ''
   const activeResearchSettings = isHydrated
     ? researchSettings
@@ -136,12 +134,6 @@ export default function Home() {
       }
 
       setMessages((currentMessages) => [...currentMessages, assistantMessage])
-
-      posthog.capture('research_completed', {
-        mode: settings.mode,
-        breadth: settings.breadth,
-        depth: settings.depth,
-      })
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         return
@@ -183,12 +175,6 @@ export default function Home() {
 
     setChatInput('')
     setFiles([])
-
-    posthog.capture('research_submit', {
-      mode: activeResearchSettings.mode,
-      breadth: activeResearchSettings.breadth,
-      depth: activeResearchSettings.depth,
-    })
 
     await runResearch(query, activeResearchSettings)
   }
