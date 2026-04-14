@@ -10,6 +10,10 @@ Seeker is a deep research assistant that turns a rough prompt into a structured 
 - Exports reports as both Markdown and `.docx` files.
 - Surfaces report download actions in the frontend instead of dumping the whole document in chat.
 
+# Preview
+
+![Desktop](desktop.png)
+
 ## Repository layout
 
 - `src/` - backend research engine, CLI, and API server.

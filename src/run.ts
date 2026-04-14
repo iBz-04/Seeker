@@ -107,6 +107,7 @@ ${followUpQuestions.map((q: string, i: number) => `Q: ${q}\nA: ${answers[i]}`).j
     const { exactAnswer, mdPath, docxPath } = await writeFinalAnswer({
       prompt: combinedQuery,
       learnings,
+      visitedUrls,
     });
 
     console.log(`\n\nFinal Answer:\n\n${exactAnswer}`);

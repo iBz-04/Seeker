@@ -115,6 +115,7 @@ app.post('/api/research', async (req: Request, res: Response) => {
     const { exactAnswer, mdPath, docxPath } = await writeFinalAnswer({
       prompt: query,
       learnings,
+      visitedUrls,
     });
 
     return res.json({

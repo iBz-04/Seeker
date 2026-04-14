@@ -169,9 +169,11 @@ export async function writeFinalReport({
 export async function writeFinalAnswer({
   prompt,
   learnings,
+  visitedUrls,
 }: {
   prompt: string;
   learnings: string[];
+  visitedUrls: string[];
 }): Promise<{ exactAnswer: string; mdPath?: string; docxPath?: string }> {
   const learningsString = learnings
     .map(learning => `<learning>\n${learning}\n</learning>`)
@@ -192,7 +194,9 @@ export async function writeFinalAnswer({
     }),
   });
 
-  const finalAnswer = res.object.exactAnswer;
+  const finalAnswerString = res.object.exactAnswer;
+  const urlsSection = `\n\n## Sources\n\n${visitedUrls.map(url => `- ${url}`).join('\n')}`;
+  const finalAnswer = finalAnswerString + (visitedUrls.length > 0 ? urlsSection : '');
   const ts = Date.now();
   const mdPath = `answer-${ts}.md`;
   const docxPath = `answer-${ts}.docx`;
@@ -315,8 +319,8 @@ export async function deepResearch({
             log(`Error running query: ${serpQuery.query}: `, e);
           }
           return {
-            learnings: [],
-            visitedUrls: [],
+            learnings: learnings,
+            visitedUrls: visitedUrls,
           };
         }
       }),
