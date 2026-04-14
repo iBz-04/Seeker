@@ -55,7 +55,6 @@ function formatResearchResponse(result: ResearchResponse) {
   }
 
   if (
-    result.mode !== 'report' &&
     result.visitedUrls &&
     result.visitedUrls.length > 0
   ) {
