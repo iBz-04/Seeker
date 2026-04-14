@@ -137,6 +137,34 @@ export function Chat({
                   {message.reportFile.previewText.replace(/^#+.*$/m, '').trim()}
                 </div>
               )}
+              {message.reportFile.sources && message.reportFile.sources.length > 0 && (
+                <div className="px-4 pb-4 flex flex-col gap-2">
+                  <div className="text-sm font-semibold text-foreground flex items-center justify-between">
+                    <span>Sources</span>
+                    <span className="text-xs text-muted-foreground">
+                      {message.reportFile.sources.length} link{message.reportFile.sources.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                    {message.reportFile.sources.slice(0, 3).map((source) => (
+                      <a
+                        key={source}
+                        href={source}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="truncate hover:text-foreground hover:underline"
+                      >
+                        {source}
+                      </a>
+                    ))}
+                    {message.reportFile.sources.length > 3 && (
+                      <span className="text-xs text-muted-foreground">
+                        +{message.reportFile.sources.length - 3} more sources in the downloaded report
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
           {message.object && (

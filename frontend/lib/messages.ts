@@ -22,6 +22,7 @@ export type ReportFile = {
   mdPath?: string
   docxPath?: string
   previewText?: string
+  sources?: string[]
 }
 
 export type Message = {

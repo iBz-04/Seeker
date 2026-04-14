@@ -141,7 +141,8 @@ export default function Home() {
           title: `Research Report: ${query}`,
           mdPath: result.mdPath,
           docxPath: result.docxPath,
-          previewText: result.content?.substring(0, 300) + '...'
+          previewText: result.content?.substring(0, 300) + '...',
+          sources: result.visitedUrls,
         }
       }
 
