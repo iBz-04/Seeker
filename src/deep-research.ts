@@ -1,4 +1,5 @@
 import FirecrawlApp, { SearchResponse } from '@mendable/firecrawl-js';
+import { tavily } from '@tavily/core';
 import { generateObject } from 'ai';
 import { compact } from 'lodash-es';
 import pLimit from 'p-limit';
@@ -29,6 +30,18 @@ type ResearchResult = {
 
 type SearchResultItem = SearchResponse['data'][number];
 
+// Common search result interface for both providers
+interface UnifiedSearchResult {
+  data: Array<{ url?: string; markdown?: string }>;
+}
+
+// Determine active search provider
+const searchProvider: 'firecrawl' | 'tavily' =
+  process.env.SEARCH_PROVIDER === 'tavily' ||
+  (process.env.TAVILY_API_KEY && process.env.SEARCH_PROVIDER !== 'firecrawl')
+    ? 'tavily'
+    : 'firecrawl';
+
 // increase this if you have higher API rate limits
 const ConcurrencyLimit = 2;
 
@@ -36,7 +49,7 @@ const ConcurrencyLimit = 2;
 const firecrawlApiKey =
   process.env.FIRECRAWL_KEY ?? process.env.FIRECRAWL_API_KEY ?? '';
 
-if (!firecrawlApiKey) {
+if (searchProvider === 'firecrawl' && !firecrawlApiKey) {
   console.warn(
     '[deep-research] FIRECRAWL_KEY/FIRECRAWL_API_KEY is not set. Source URLs may be empty.',
   );
@@ -46,6 +59,47 @@ const firecrawl = new FirecrawlApp({
   apiKey: firecrawlApiKey,
   apiUrl: process.env.FIRECRAWL_BASE_URL,
 });
+
+// Initialize Tavily client when selected
+const tavilyClient = searchProvider === 'tavily'
+  ? tavily({ apiKey: process.env.TAVILY_API_KEY! })
+  : null;
+
+if (searchProvider === 'tavily') {
+  log('[deep-research] Using Tavily as search provider');
+} else {
+  log('[deep-research] Using Firecrawl as search provider');
+}
+
+/**
+ * Perform a search using the configured provider, returning a unified result.
+ */
+async function performSearch(
+  query: string,
+  options: { timeout?: number; limit?: number },
+): Promise<UnifiedSearchResult> {
+  if (searchProvider === 'tavily' && tavilyClient) {
+    const response = await tavilyClient.search(query, {
+      maxResults: options.limit ?? 5,
+      searchDepth: 'advanced',
+      includeRawContent: 'markdown',
+    });
+    return {
+      data: (response.results ?? []).map(r => ({
+        url: r.url,
+        markdown: r.rawContent || r.content || '',
+      })),
+    };
+  }
+
+  // Default: Firecrawl
+  const result = await firecrawl.search(query, {
+    timeout: options.timeout ?? 15000,
+    limit: options.limit ?? 5,
+    scrapeOptions: { formats: ['markdown'] },
+  });
+  return result;
+}
 
 function isHttpUrl(value: unknown): value is string {
   return typeof value === 'string' && /^https?:\/\//i.test(value);
@@ -112,7 +166,7 @@ async function processSerpResult({
   numFollowUpQuestions = 3,
 }: {
   query: string;
-  result: SearchResponse;
+  result: UnifiedSearchResult;
   numLearnings?: number;
   numFollowUpQuestions?: number;
 }) {
@@ -288,14 +342,19 @@ export async function deepResearch({
     serpQueries.map(serpQuery =>
       limit(async () => {
         try {
-          const result = await firecrawl.search(serpQuery.query, {
+          const result = await performSearch(serpQuery.query, {
             timeout: 15000,
             limit: 5,
-            scrapeOptions: { formats: ['markdown'] },
           });
 
           // Collect URLs from this search
-          const newUrls = compact(result.data.map(extractSourceUrl));
+          const newUrls = compact(
+            result.data.map(item =>
+              searchProvider === 'tavily'
+                ? item.url && isHttpUrl(item.url) ? item.url : null
+                : extractSourceUrl(item as SearchResultItem),
+            ),
+          );
           const newBreadth = Math.ceil(breadth / 2);
           const newDepth = depth - 1;
 
