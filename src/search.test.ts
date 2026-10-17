@@ -99,7 +99,7 @@ beforeEach(() => {
     assert.equal(headers.get('authorization'), null);
     requests.push({ url, init, body });
     if (stallMethod === body.method) {
-      return new Promise((_resolve, reject) => {
+      return new Promise<Response>((_resolve, reject) => {
         const fail = () => reject(init?.signal?.reason);
         if (init?.signal?.aborted) fail();
         else init?.signal?.addEventListener('abort', fail, { once: true });
