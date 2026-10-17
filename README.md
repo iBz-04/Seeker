@@ -27,7 +27,7 @@ Seeker is a deep research assistant that turns a rough prompt into a structured 
 
 - Node.js 22.x
 - pnpm
-- API keys for Firecrawl and an LLM provider
+- An API key for an LLM provider
 
 ### Install
 
@@ -43,7 +43,6 @@ Create a `.env.local` file at the repo root for the backend. The frontend reads 
 Typical backend variables:
 
 ```ini
-FIRECRAWL_KEY="your_firecrawl_key"
 OPENAI_KEY="your_openai_key"
 # or
 FIREWORKS_API_KEY="your_fireworks_key"
@@ -52,6 +51,30 @@ CONTEXT_SIZE=8000
 OPENAI_ENDPOINT="https://api.openai.com/v1"
 FIREWORKS_MODEL="your-model-name"
 ```
+
+### Web search
+
+With no search configuration, the research loop uses [Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp) at `https://search.parallel.ai/mcp`. Search runs in Fast mode without an account or API key. Source excerpts feed the research synthesis and their URLs appear in the report's sources. These are focused excerpts, rather than Firecrawl's full-page markdown scraping. The anonymous service has usage limits; search failures are logged and can leave a run without sources.
+
+Existing `FIRECRAWL_KEY`, `FIRECRAWL_API_KEY`, or `FIRECRAWL_BASE_URL` settings keep Firecrawl selected, including self-hosted endpoints. To choose explicitly, set one of:
+
+```ini
+SEARCH_PROVIDER="parallel"  # Anonymous MCP, even if Firecrawl is configured
+# SEARCH_PROVIDER="firecrawl"  # Uses your Firecrawl key and/or endpoint
+# SEARCH_PROVIDER="none"  # Disable web search
+```
+
+Explicit choices take precedence. A provider error never switches to another provider. `none` skips web research; answer/report generation still uses your LLM. Both the CLI and API use these backend settings. Parallel requests have a 15-second deadline covering connection, discovery, and search; the integration uses the MCP SDK's Streamable HTTP transport.
+
+To keep Firecrawl explicitly:
+
+```ini
+SEARCH_PROVIDER="firecrawl"
+FIRECRAWL_KEY="your_firecrawl_key"
+# FIRECRAWL_BASE_URL="http://localhost:3002"  # Optional self-hosted server
+```
+
+Run the search integration tests with `pnpm exec tsx --test src/search.test.ts`. They use scripted model replies and local search fixtures, with no paid inference.
 
 ## Run locally
 

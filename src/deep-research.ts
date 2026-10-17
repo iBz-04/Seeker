@@ -1,4 +1,4 @@
-import FirecrawlApp, { SearchResponse } from '@mendable/firecrawl-js';
+import { randomUUID } from 'node:crypto';
 import { generateObject } from 'ai';
 import { compact } from 'lodash-es';
 import pLimit from 'p-limit';
@@ -6,6 +6,12 @@ import { z } from 'zod';
 
 import { getModel, trimPrompt } from './ai/providers';
 import { systemPrompt } from './prompt';
+import {
+  isHttpUrl,
+  ResearchSearchResponse,
+  resolveSearchProvider,
+  searchWeb,
+} from './search';
 import { saveMdAndConvert } from './utils/md-to-docx';
 
 function log(...args: any[]) {
@@ -27,29 +33,10 @@ type ResearchResult = {
   visitedUrls: string[];
 };
 
-type SearchResultItem = SearchResponse['data'][number];
+type SearchResultItem = ResearchSearchResponse['data'][number];
 
 // increase this if you have higher API rate limits
 const ConcurrencyLimit = 2;
-
-// Initialize Firecrawl with optional API key and optional base url
-const firecrawlApiKey =
-  process.env.FIRECRAWL_KEY ?? process.env.FIRECRAWL_API_KEY ?? '';
-
-if (!firecrawlApiKey) {
-  console.warn(
-    '[deep-research] FIRECRAWL_KEY/FIRECRAWL_API_KEY is not set. Source URLs may be empty.',
-  );
-}
-
-const firecrawl = new FirecrawlApp({
-  apiKey: firecrawlApiKey,
-  apiUrl: process.env.FIRECRAWL_BASE_URL,
-});
-
-function isHttpUrl(value: unknown): value is string {
-  return typeof value === 'string' && /^https?:\/\//i.test(value);
-}
 
 function extractSourceUrl(item: SearchResultItem): string | null {
   const candidates = [
@@ -68,15 +55,18 @@ async function generateSerpQueries({
   query,
   numQueries = 3,
   learnings,
+  signal,
 }: {
   query: string;
   numQueries?: number;
 
   // optional, if provided, the research will continue from the last learning
   learnings?: string[];
+  signal?: AbortSignal;
 }) {
   const res = await generateObject({
     model: getModel(),
+    abortSignal: signal,
     system: systemPrompt(),
     prompt: `Given the following prompt from the user, generate a list of SERP queries to research the topic. Return a maximum of ${numQueries} queries, but feel free to return less if the original prompt is clear. Make sure each query is unique and not similar to each other: <prompt>${query}</prompt>\n\n${
       learnings
@@ -110,11 +100,13 @@ async function processSerpResult({
   result,
   numLearnings = 3,
   numFollowUpQuestions = 3,
+  signal,
 }: {
   query: string;
-  result: SearchResponse;
+  result: ResearchSearchResponse;
   numLearnings?: number;
   numFollowUpQuestions?: number;
+  signal?: AbortSignal;
 }) {
   const contents = compact(result.data.map(item => item.markdown)).map(
     content => trimPrompt(content, 25_000),
@@ -127,7 +119,9 @@ async function processSerpResult({
 
   const res = await generateObject({
     model: getModel(),
-    abortSignal: AbortSignal.timeout(60_000),
+    abortSignal: signal
+      ? AbortSignal.any([signal, AbortSignal.timeout(60_000)])
+      : AbortSignal.timeout(60_000),
     system: systemPrompt(),
     prompt: trimPrompt(
       `Given the following contents from a SERP search for the query <query>${query}</query>, generate a list of learnings from the contents. Return a maximum of ${numLearnings} learnings, but feel free to return less if the contents are clear. Make sure each learning is unique and not similar to each other. The learnings should be concise and to the point, as detailed and information dense as possible. Make sure to include any entities like people, places, companies, products, things, etc in the learnings, as well as any exact metrics, numbers, or dates. The learnings will be used to research the topic further.\n\n<contents>${contents
@@ -227,7 +221,8 @@ export async function writeFinalAnswer({
 
   const finalAnswerString = res.object.exactAnswer;
   const urlsSection = `\n\n## Sources\n\n${visitedUrls.map(url => `- ${url}`).join('\n')}`;
-  const finalAnswer = finalAnswerString + (visitedUrls.length > 0 ? urlsSection : '');
+  const finalAnswer =
+    finalAnswerString + (visitedUrls.length > 0 ? urlsSection : '');
   const ts = Date.now();
   const mdPath = `answer-${ts}.md`;
   const docxPath = `answer-${ts}.docx`;
@@ -249,6 +244,8 @@ export async function deepResearch({
   learnings = [],
   visitedUrls = [],
   onProgress,
+  signal,
+  searchSessionId = randomUUID(),
 }: {
   query: string;
   breadth: number;
@@ -256,7 +253,12 @@ export async function deepResearch({
   learnings?: string[];
   visitedUrls?: string[];
   onProgress?: (progress: ResearchProgress) => void;
+  signal?: AbortSignal;
+  searchSessionId?: string;
 }): Promise<ResearchResult> {
+  signal?.throwIfAborted();
+  // Validate explicit choices before generating queries or making requests.
+  if (resolveSearchProvider() === 'none') return { learnings, visitedUrls };
   const progress: ResearchProgress = {
     currentDepth: depth,
     totalDepth: depth,
@@ -275,6 +277,7 @@ export async function deepResearch({
     query,
     learnings,
     numQueries: breadth,
+    signal,
   });
 
   reportProgress({
@@ -288,11 +291,11 @@ export async function deepResearch({
     serpQueries.map(serpQuery =>
       limit(async () => {
         try {
-          const result = await firecrawl.search(serpQuery.query, {
-            timeout: 15000,
-            limit: 5,
-            scrapeOptions: { formats: ['markdown'] },
+          const result = await searchWeb(serpQuery.query, {
+            sessionId: searchSessionId,
+            signal,
           });
+          signal?.throwIfAborted();
 
           // Collect URLs from this search
           const newUrls = compact(result.data.map(extractSourceUrl));
@@ -303,6 +306,7 @@ export async function deepResearch({
             query: serpQuery.query,
             result,
             numFollowUpQuestions: newBreadth,
+            signal,
           });
           const allLearnings = [...learnings, ...newLearnings.learnings];
           const allUrls = [...visitedUrls, ...newUrls];
@@ -331,6 +335,8 @@ export async function deepResearch({
               learnings: allLearnings,
               visitedUrls: allUrls,
               onProgress,
+              signal,
+              searchSessionId,
             });
           } else {
             reportProgress({
@@ -344,6 +350,7 @@ export async function deepResearch({
             };
           }
         } catch (e: any) {
+          signal?.throwIfAborted();
           if (e.message && e.message.includes('Timeout')) {
             log(`Timeout error running query: ${serpQuery.query}: `, e);
           } else {
