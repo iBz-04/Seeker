@@ -96,7 +96,7 @@ app.post('/api/research', async (req: Request, res: Response) => {
 
     const warning =
       visitedUrls.length === 0
-        ? 'No source URLs were captured. This usually means Firecrawl credentials are missing, the request timed out, or target pages blocked scraping.'
+        ? 'No source URLs were captured. Search may be disabled, unavailable, or returned no results. Check the backend search configuration and logs.'
         : undefined;
 
     if (mode === 'report') {
